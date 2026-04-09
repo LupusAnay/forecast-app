@@ -15,8 +15,10 @@ There is no linter or typechecker configured. Build errors are the only automate
 - **Dark theme only** — background `#1a1a2e`, panels `#16213e`, accent `#e07a5f`, text `#e0e0e0`/`#888`/`#666`
 - **Font** — JetBrains Mono, loaded via Google Fonts in `index.html`
 - **State** — all global state lives in `App.jsx`, passed down as props. No context or state libraries.
-- **Data flow** — `data.js` fetches from Open-Meteo APIs, caches merged result in localStorage (`forecast_verification_v2_{lat}_{lon}`), components receive `rawData` prop
-- **Plotly** — imported as `plotly.js-dist-min`, used via `Plotly.react()` for updates. Zoom state is preserved across re-renders by saving/restoring axis ranges.
+- **Data flow** — `data.js` fetches from Open-Meteo APIs in parallel batches (ERA5 single, then 7 historical, 7 live, 7 previous-runs concurrently with group pauses). Caches merged result in localStorage (`forecast_verification_v2_{lat}_{lon}`), components receive `rawData` prop
+- **Plotly** — imported as `plotly.js-dist-min`, used via `Plotly.react()` for updates. Zoom state is preserved across re-renders by saving/restoring axis ranges. Purge only on unmount.
+- **Precipitation** — shown as cumulative sums in the overlay chart, not as daily values with rolling average
+- **Lead time selector** — `Analysis` (Day 0) uses historical forecast analysis; `Day 1/2/3/5` uses Previous Runs API data for current year only. Past years always show analysis. Provides `leadTime` prop to YearOverlay as integer (0, 1, 2, 3, 5).
 - **File naming** — PascalCase for components, camelCase for utilities
 
 ## Data structure

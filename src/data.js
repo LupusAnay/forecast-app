@@ -7,7 +7,6 @@ export { MODEL_LABELS };
 
 const CACHE_KEY = "forecast_verification_v2";
 const CACHE_TTL = 12 * 60 * 60 * 1000;
-
 const DAILY_PARAMS = "temperature_2m_mean,temperature_2m_max,temperature_2m_min,precipitation_sum";
 
 export function clearCache(lat, lon) {
@@ -89,6 +88,8 @@ function dailySums(hourlyTimes, hourlyValues) {
   return { days, values: days.map(d => groups[d].reduce((a, b) => a + b, 0)) };
 }
 
+const pause = (ms) => new Promise(r => setTimeout(r, ms));
+
 export async function fetchAllData(onProgress, location) {
   const lat = location?.lat ?? 41.7151;
   const lon = location?.lon ?? 44.8271;
@@ -99,80 +100,94 @@ export async function fetchAllData(onProgress, location) {
     return cached;
   }
 
-  const today = new Date();
-  const endDate = toISODate(today);
+  const endDate = toISODate(new Date());
   const startDate = "2023-01-01";
 
   const allData = { models: {}, rows: [], previousRuns: {}, location: { lat, lon } };
   const dateMap = {};
 
-  // 1. ERA5 reanalysis
+  // 1. ERA5 reanalysis (single request)
   onProgress?.("Fetching ERA5 reanalysis...");
   const eraUrl = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${startDate}&end_date=${endDate}&daily=${DAILY_PARAMS}&models=era5&timezone=auto`;
-  const eraResp = await fetch(eraUrl);
-  const eraJson = await eraResp.json();
-  const eraTimes = eraJson.daily?.time || [];
-  for (let i = 0; i < eraTimes.length; i++) {
-    const d = eraTimes[i];
-    const row = ensureRow(dateMap, d);
-    row.ot_mean = eraJson.daily.temperature_2m_mean?.[i];
-    row.ot_max = eraJson.daily.temperature_2m_max?.[i];
-    row.ot_min = eraJson.daily.temperature_2m_min?.[i];
-    row.op = eraJson.daily.precipitation_sum?.[i];
+  try {
+    const eraJson = await (await fetch(eraUrl)).json();
+    const eraTimes = eraJson.daily?.time || [];
+    for (let i = 0; i < eraTimes.length; i++) {
+      const row = ensureRow(dateMap, eraTimes[i]);
+      row.ot_mean = eraJson.daily.temperature_2m_mean?.[i];
+      row.ot_max = eraJson.daily.temperature_2m_max?.[i];
+      row.ot_min = eraJson.daily.temperature_2m_min?.[i];
+      row.op = eraJson.daily.precipitation_sum?.[i];
+    }
+  } catch (e) {
+    console.warn("ERA5 fetch failed:", e);
   }
 
-  // 2. Historical forecasts
-  for (const m of MODEL_IDS) {
-    const key = modelKey(m);
-    allData.models[m] = key;
+  // 2. Historical forecasts (7 models in parallel)
+  onProgress?.("Fetching historical forecasts...");
+  MODEL_IDS.forEach(m => { allData.models[m] = modelKey(m); });
 
-    onProgress?.(`Fetching ${MODEL_LABELS[m]}...`);
+  const histResults = await Promise.all(MODEL_IDS.map(async (m) => {
+    const key = modelKey(m);
     try {
       const url = `https://historical-forecast-api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&start_date=${startDate}&end_date=${endDate}&daily=${DAILY_PARAMS}&models=${m}&timezone=auto`;
-      const resp = await fetch(url);
-      const json = await resp.json();
-      const times = json.daily?.time || [];
-      for (let i = 0; i < times.length; i++) {
-        const d = times[i];
-        const row = ensureRow(dateMap, d);
-        row[`ft_${key}_mean`] = json.daily.temperature_2m_mean?.[i];
-        row[`ft_${key}_max`] = json.daily.temperature_2m_max?.[i];
-        row[`ft_${key}_min`] = json.daily.temperature_2m_min?.[i];
-        row[`fp_${key}`] = json.daily.precipitation_sum?.[i];
-      }
+      const json = await (await fetch(url)).json();
+      return { model: m, key, json };
     } catch (e) {
       console.warn(`Failed to fetch ${m}:`, e);
+      return null;
     }
-    await new Promise(r => setTimeout(r, 300));
+  }));
+
+  for (const r of histResults) {
+    if (!r) continue;
+    const times = r.json.daily?.time || [];
+    for (let i = 0; i < times.length; i++) {
+      const row = ensureRow(dateMap, times[i]);
+      row[`ft_${r.key}_mean`] = r.json.daily.temperature_2m_mean?.[i];
+      row[`ft_${r.key}_max`] = r.json.daily.temperature_2m_max?.[i];
+      row[`ft_${r.key}_min`] = r.json.daily.temperature_2m_min?.[i];
+      row[`fp_${r.key}`] = r.json.daily.precipitation_sum?.[i];
+    }
   }
 
-  // 3. Forward forecast (next 7 days)
-  for (const m of MODEL_IDS) {
+  await pause(300);
+
+  // 3. Forward forecast (7 models in parallel)
+  onProgress?.("Fetching live forecasts...");
+
+  const fwdResults = await Promise.all(MODEL_IDS.map(async (m) => {
     const key = modelKey(m);
-    onProgress?.(`Fetching live ${MODEL_LABELS[m]}...`);
     try {
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=${DAILY_PARAMS}&models=${m}&timezone=auto`;
-      const resp = await fetch(url);
-      const json = await resp.json();
-      const times = json.daily?.time || [];
-      for (let i = 0; i < times.length; i++) {
-        const d = times[i];
-        const row = ensureRow(dateMap, d);
-        const hasHistorical = row[`ft_${key}_mean`] != null || row[`ft_${key}_max`] != null || row[`ft_${key}_min`] != null || row[`fp_${key}`] != null;
-        if (!hasHistorical) {
-          row[`fwt_${key}_mean`] = json.daily.temperature_2m_mean?.[i];
-          row[`fwt_${key}_max`] = json.daily.temperature_2m_max?.[i];
-          row[`fwt_${key}_min`] = json.daily.temperature_2m_min?.[i];
-          row[`fwp_${key}`] = json.daily.precipitation_sum?.[i];
-        }
-      }
+      const json = await (await fetch(url)).json();
+      return { model: m, key, json };
     } catch (e) {
       console.warn(`Forward forecast ${m}:`, e);
+      return null;
     }
-    await new Promise(r => setTimeout(r, 200));
+  }));
+
+  for (const r of fwdResults) {
+    if (!r) continue;
+    const times = r.json.daily?.time || [];
+    for (let i = 0; i < times.length; i++) {
+      const d = times[i];
+      const row = ensureRow(dateMap, d);
+      const hasHistorical = row[`ft_${r.key}_mean`] != null || row[`ft_${r.key}_max`] != null || row[`ft_${r.key}_min`] != null || row[`fp_${r.key}`] != null;
+      if (!hasHistorical) {
+        row[`fwt_${r.key}_mean`] = r.json.daily.temperature_2m_mean?.[i];
+        row[`fwt_${r.key}_max`] = r.json.daily.temperature_2m_max?.[i];
+        row[`fwt_${r.key}_min`] = r.json.daily.temperature_2m_min?.[i];
+        row[`fwp_${r.key}`] = r.json.daily.precipitation_sum?.[i];
+      }
+    }
   }
 
-  // 4. Previous Runs API for lead-time skill
+  await pause(300);
+
+  // 4. Previous Runs API (7 models in parallel)
+  onProgress?.("Fetching previous runs...");
   const prevRunsVars = [
     "temperature_2m",
     "temperature_2m_previous_day1",
@@ -186,53 +201,52 @@ export async function fetchAllData(onProgress, location) {
     "precipitation_previous_day5",
   ].join(",");
 
-  for (const m of MODEL_IDS) {
-    onProgress?.(`Fetching previous runs ${MODEL_LABELS[m]}...`);
+  const prevResults = await Promise.all(MODEL_IDS.map(async (m) => {
     try {
       const url = `https://previous-runs-api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=${prevRunsVars}&models=${m}&timezone=auto&past_days=92`;
-      const resp = await fetch(url);
-      const json = await resp.json();
-      const times = json.hourly?.time || [];
-
-      const result = { dates: {}, model: m };
-
-      const tempAgg = {};
-      const precipAgg = {};
-
-      for (const lt of LEAD_TIMES) {
-        const varName = lt === 0 ? "temperature_2m" : `temperature_2m_previous_day${lt}`;
-        const vals = json.hourly?.[varName] || [];
-        const agg = dailyMeans(times, vals);
-        tempAgg[lt] = agg;
-
-        const precipVar = lt === 0 ? "precipitation" : `precipitation_previous_day${lt}`;
-        const pVals = json.hourly?.[precipVar] || [];
-        const pAgg = dailySums(times, pVals);
-        precipAgg[lt] = pAgg;
-      }
-
-      const allDates = new Set();
-      for (const lt of LEAD_TIMES) {
-        tempAgg[lt].days.forEach(d => allDates.add(d));
-      }
-
-      for (const day of [...allDates].sort()) {
-        const entry = {};
-        for (const lt of LEAD_TIMES) {
-          const idx = tempAgg[lt].days.indexOf(day);
-          entry[`temp_day${lt}`] = idx >= 0 ? tempAgg[lt].values[idx] : null;
-          const pidx = precipAgg[lt].days.indexOf(day);
-          entry[`precip_day${lt}`] = pidx >= 0 ? precipAgg[lt].values[pidx] : null;
-        }
-        result.dates[day] = entry;
-      }
-
-      allData.previousRuns[m] = result;
+      const json = await (await fetch(url)).json();
+      return { model: m, json };
     } catch (e) {
       console.warn(`Previous runs ${m}:`, e);
-      allData.previousRuns[m] = { dates: {}, model: m };
+      return { model: m, json: null };
     }
-    await new Promise(r => setTimeout(r, 300));
+  }));
+
+  for (const { model: m, json } of prevResults) {
+    if (!json) {
+      allData.previousRuns[m] = { dates: {}, model: m };
+      continue;
+    }
+    const times = json.hourly?.time || [];
+    const result = { dates: {}, model: m };
+    const tempAgg = {};
+    const precipAgg = {};
+
+    for (const lt of LEAD_TIMES) {
+      const varName = lt === 0 ? "temperature_2m" : `temperature_2m_previous_day${lt}`;
+      const vals = json.hourly?.[varName] || [];
+      tempAgg[lt] = dailyMeans(times, vals);
+      const precipVar = lt === 0 ? "precipitation" : `precipitation_previous_day${lt}`;
+      const pVals = json.hourly?.[precipVar] || [];
+      precipAgg[lt] = dailySums(times, pVals);
+    }
+
+    const allDates = new Set();
+    for (const lt of LEAD_TIMES) {
+      tempAgg[lt].days.forEach(d => allDates.add(d));
+    }
+
+    for (const day of [...allDates].sort()) {
+      const entry = {};
+      for (const lt of LEAD_TIMES) {
+        const idx = tempAgg[lt].days.indexOf(day);
+        entry[`temp_day${lt}`] = idx >= 0 ? tempAgg[lt].values[idx] : null;
+        const pidx = precipAgg[lt].days.indexOf(day);
+        entry[`precip_day${lt}`] = pidx >= 0 ? precipAgg[lt].values[pidx] : null;
+      }
+      result.dates[day] = entry;
+    }
+    allData.previousRuns[m] = result;
   }
 
   allData.rows = Object.values(dateMap).sort((a, b) => a.d.localeCompare(b.d));

@@ -40,3 +40,11 @@ export const VARIABLES = [
 export const SMOOTHING_OPTIONS = [1, 3, 7, 14, 30];
 
 export const LEAD_TIMES = [0, 1, 2, 3, 5];
+
+export const LEAD_TIME_OPTIONS = [
+  { value: 0, label: "Analysis" },
+  { value: 1, label: "Day 1" },
+  { value: 2, label: "Day 2" },
+  { value: 3, label: "Day 3" },
+  { value: 5, label: "Day 5" },
+];

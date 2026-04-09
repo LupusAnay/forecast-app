@@ -1,15 +1,20 @@
-import { MODEL_IDS, MODEL_LABELS, VARIABLES, SMOOTHING_OPTIONS } from "../config";
+import { MODEL_IDS, MODEL_LABELS, VARIABLES, SMOOTHING_OPTIONS, LEAD_TIME_OPTIONS } from "../config";
 import LocationSelector from "./LocationSelector";
 
 const sel = { background: "#16213e", color: "#e0e0e0", border: "1px solid #333", borderRadius: 4, padding: "4px 8px", fontSize: 12, fontFamily: "inherit" };
 
-export default function GlobalControls({ model, setModel, smoothing, setSmoothing, variable, setVariable, tab, setTab, onRefresh, location, onLocationChange }) {
+export default function GlobalControls({ model, setModel, smoothing, setSmoothing, variable, setVariable, tab, setTab, leadTime, setLeadTime, onRefresh, location, onLocationChange }) {
   return (
     <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16, alignItems: "center" }}>
       <LocationSelector location={location} onLocationChange={onLocationChange} />
       <label style={{ fontSize: 11, color: "#888" }}>MODEL
         <select value={model} onChange={e => setModel(e.target.value)} style={{ ...sel, marginLeft: 6 }}>
           {MODEL_IDS.map(k => <option key={k} value={k}>{MODEL_LABELS[k]}</option>)}
+        </select>
+      </label>
+      <label style={{ fontSize: 11, color: "#888" }}>LEAD TIME
+        <select value={leadTime} onChange={e => setLeadTime(+e.target.value)} style={{ ...sel, marginLeft: 6 }}>
+          {LEAD_TIME_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </label>
       <label style={{ fontSize: 11, color: "#888" }}>SMOOTH

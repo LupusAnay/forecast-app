@@ -21,6 +21,7 @@ export default function App() {
   const [smoothing, setSmoothing] = useState(7);
   const [variable, setVariable] = useState("temperature_2m_mean");
   const [tab, setTab] = useState("temp");
+  const [leadTime, setLeadTime] = useState(0);
 
   const loadData = useCallback((loc = location, force = false) => {
     if (force) clearCache(loc.lat, loc.lon);
@@ -63,13 +64,14 @@ export default function App() {
           smoothing={smoothing} setSmoothing={setSmoothing}
           variable={variable} setVariable={setVariable}
           tab={tab} setTab={setTab}
+          leadTime={leadTime} setLeadTime={setLeadTime}
           onRefresh={handleRefresh}
           location={location} onLocationChange={handleLocationChange}
         />
 
         {tab === "temp" && (
           <>
-            <YearOverlay rawData={rawData} model={model} smoothing={smoothing} variable={variable} tab={tab} />
+            <YearOverlay rawData={rawData} model={model} smoothing={smoothing} variable={variable} tab={tab} leadTime={leadTime} />
             <StatsCards rawData={rawData} model={model} variable={variable} />
             <YearRanking rawData={rawData} variable={variable} />
             <MonthlyTemp rawData={rawData} variable={variable} />
@@ -79,7 +81,7 @@ export default function App() {
 
         {tab === "precip" && (
           <>
-            <YearOverlay rawData={rawData} model={model} smoothing={smoothing} variable={variable} tab={tab} />
+            <YearOverlay rawData={rawData} model={model} smoothing={smoothing} variable={variable} tab={tab} leadTime={leadTime} />
             <StatsCards rawData={rawData} model={model} variable={variable} />
             <MonthlyPrecip rawData={rawData} />
             <RainSkill rawData={rawData} />

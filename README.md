@@ -4,7 +4,7 @@ Weather forecast accuracy dashboard comparing 7 NWP models against ERA5 reanalys
 
 ## What it shows
 
-- **Year overlay chart** — year-over-year temperature/precipitation with scroll-zoom, drag-pan, and range slider (zoom preserved across parameter changes)
+- **Year overlay chart** — year-over-year temperature/precipitation with scroll-zoom, drag-pan, and range slider (zoom preserved across parameter changes). Temperature uses rolling average; precipitation uses cumulative totals. Lead time selector overlays actual N-day-ahead predictions from the Previous Runs API.
 - **Stats cards** — per-year MAE for selected model + variable
 - **Year ranking** — years ranked warmest to coolest by ERA5 observations
 - **Monthly tables** — temperature heatmap and precipitation totals by month × year
@@ -55,6 +55,7 @@ data/snapshots/                   — Daily forecast JSON files (written by cron
 All charts and tables respond simultaneously to:
 
 - **Model** — which NWP model to display in the overlay and stats cards
+- **Lead time** — Analysis (Day 0, retrospective), or actual Day 1/2/3/5 predictions from the Previous Runs API
 - **Smoothing** — raw, 3d, 7d (default), 14d, 30d rolling average
 - **Variable** — mean temp, day high, night low (affects temp-related panels only)
 - **Tab** — temperature / precipitation view
