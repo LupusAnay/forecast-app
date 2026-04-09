@@ -4,9 +4,9 @@ import { getObsTempKey } from "../utils";
 import Panel from "./Panel";
 import DataTable from "./DataTable";
 
-export default function YearRanking({ rawData, variable }) {
+export default function YearRanking({ rawData, variable, season }) {
   if (!rawData) return null;
-  const { yrs, yearRows } = useYearlyData(rawData);
+  const { yrs, yearRows } = useYearlyData(rawData, season);
   const obsKey = getObsTempKey(variable);
 
   const ranking = yrs.map(yr => {

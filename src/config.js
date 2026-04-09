@@ -48,3 +48,11 @@ export const LEAD_TIME_OPTIONS = [
   { value: 3, label: "Day 3" },
   { value: 5, label: "Day 5" },
 ];
+
+export const SEASONS = [
+  { id: "all", label: "All Year", months: null },
+  { id: "DJF", label: "Winter (DJF)", months: [11, 0, 1] },
+  { id: "MAM", label: "Spring (MAM)", months: [2, 3, 4] },
+  { id: "JJA", label: "Summer (JJA)", months: [5, 6, 7] },
+  { id: "SON", label: "Autumn (SON)", months: [8, 9, 10] },
+];

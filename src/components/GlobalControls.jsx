@@ -1,9 +1,9 @@
-import { MODEL_IDS, MODEL_LABELS, VARIABLES, SMOOTHING_OPTIONS, LEAD_TIME_OPTIONS } from "../config";
+import { MODEL_IDS, MODEL_LABELS, VARIABLES, SMOOTHING_OPTIONS, LEAD_TIME_OPTIONS, SEASONS } from "../config";
 import LocationSelector from "./LocationSelector";
 
 const sel = { background: "#16213e", color: "#e0e0e0", border: "1px solid #333", borderRadius: 4, padding: "4px 8px", fontSize: 12, fontFamily: "inherit" };
 
-export default function GlobalControls({ model, setModel, smoothing, setSmoothing, variable, setVariable, tab, setTab, leadTime, setLeadTime, onRefresh, location, onLocationChange }) {
+export default function GlobalControls({ model, setModel, smoothing, setSmoothing, variable, setVariable, tab, setTab, leadTime, setLeadTime, season, setSeason, onRefresh, location, onLocationChange }) {
   return (
     <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16, alignItems: "center" }}>
       <LocationSelector location={location} onLocationChange={onLocationChange} />
@@ -25,6 +25,11 @@ export default function GlobalControls({ model, setModel, smoothing, setSmoothin
       <label style={{ fontSize: 11, color: "#888" }}>VARIABLE
         <select value={variable} onChange={e => setVariable(e.target.value)} style={{ ...sel, marginLeft: 6 }}>
           {VARIABLES.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
+        </select>
+      </label>
+      <label style={{ fontSize: 11, color: "#888" }}>SEASON
+        <select value={season} onChange={e => setSeason(e.target.value)} style={{ ...sel, marginLeft: 6 }}>
+          {SEASONS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
         </select>
       </label>
       <div style={{ display: "flex", gap: 4 }}>

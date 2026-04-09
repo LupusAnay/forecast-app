@@ -76,6 +76,26 @@ export function biasColor(value) {
   return "#81b29a";
 }
 
+export function formatPrecipBias(value) {
+  if (value == null) return "—";
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(2)} mm`;
+}
+
+export function precipBiasLabel(value) {
+  if (value == null) return "";
+  if (value > 0.3) return "wet";
+  if (value < -0.3) return "dry";
+  return "neutral";
+}
+
+export function precipBiasColor(value) {
+  if (value == null) return "#666";
+  if (value > 0.3) return "#7fb8d8";
+  if (value < -0.3) return "#e07a5f";
+  return "#81b29a";
+}
+
 export function detectionColor(pod) {
   if (pod == null) return "#666";
   if (pod >= 0.8) return "#81b29a";

@@ -4,9 +4,16 @@ import { formatBias, biasLabel, biasColor } from "../utils";
 import Panel from "./Panel";
 import DataTable from "./DataTable";
 
-export default function TempAccuracy({ rawData, variable }) {
+function accColor(v) {
+  if (v == null) return "#666";
+  if (v >= 0.95) return "#81b29a";
+  if (v >= 0.9) return "#f2cc8f";
+  return "#e07a5f";
+}
+
+export default function TempAccuracy({ rawData, variable, season }) {
   if (!rawData) return null;
-  const modelStats = useAllModelStats(rawData, variable);
+  const modelStats = useAllModelStats(rawData, variable, season);
 
   const rankings = modelStats.map(s => ({
     ...s,
@@ -19,6 +26,7 @@ export default function TempAccuracy({ rawData, variable }) {
     { label: "MAE" },
     { label: "RMSE" },
     { label: "Bias" },
+    { label: "ACC" },
     { label: "Days" },
   ];
 
@@ -30,13 +38,19 @@ export default function TempAccuracy({ rawData, variable }) {
       { value: m.tMAE != null ? m.tMAE.toFixed(2) + "°C" : null },
       { value: m.tRMSE != null ? m.tRMSE.toFixed(2) + "°C" : null },
       { value: m.tBias != null ? `${formatBias(m.tBias)} ${biasLabel(m.tBias)}` : null, style: { color: biasColor(m.tBias) } },
+      { value: m.acc != null ? m.acc.toFixed(3) : "—", style: { color: accColor(m.acc) } },
       { value: m.n, style: { color: "#666" } },
     ],
   }));
 
   return (
-    <Panel title="TEMPERATURE ACCURACY (all years vs ERA5)" titleColor="#e07a5f">
-      <DataTable headers={headers} rows={rows} />
-    </Panel>
+    <div style={{ marginBottom: 0 }}>
+      <Panel title="TEMPERATURE ACCURACY (vs ERA5)" titleColor="#e07a5f">
+        <DataTable headers={headers} rows={rows} />
+      </Panel>
+      <p style={{ fontSize: 10, color: "#444", margin: "4px 0 0", lineHeight: 1.6, padding: "0 8px" }}>
+        ACC = Anomaly Correlation Coefficient. Measures how well forecast anomalies match observed anomalies relative to climatology. ACC &gt; 0.95 = excellent, &gt; 0.9 = good, &lt; 0.9 = poor.
+      </p>
+    </div>
   );
 }

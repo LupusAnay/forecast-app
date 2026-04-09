@@ -6,6 +6,7 @@ import YearOverlay from "./components/YearOverlay";
 import StatsCards from "./components/StatsCards";
 import YearRanking from "./components/YearRanking";
 import TempAccuracy from "./components/TempAccuracy";
+import PrecipAccuracy from "./components/PrecipAccuracy";
 import RainSkill from "./components/RainSkill";
 import MonthlyTemp from "./components/MonthlyTemp";
 import MonthlyPrecip from "./components/MonthlyPrecip";
@@ -22,6 +23,7 @@ export default function App() {
   const [variable, setVariable] = useState("temperature_2m_mean");
   const [tab, setTab] = useState("temp");
   const [leadTime, setLeadTime] = useState(0);
+  const [season, setSeason] = useState("all");
 
   const locationRef = useRef(location);
   locationRef.current = location;
@@ -66,30 +68,32 @@ export default function App() {
           variable={variable} setVariable={setVariable}
           tab={tab} setTab={setTab}
           leadTime={leadTime} setLeadTime={setLeadTime}
+          season={season} setSeason={setSeason}
           onRefresh={handleRefresh}
           location={location} onLocationChange={handleLocationChange}
         />
 
         {tab === "temp" && (
           <>
-            <YearOverlay rawData={rawData} model={model} smoothing={smoothing} variable={variable} tab={tab} leadTime={leadTime} />
-            <StatsCards rawData={rawData} model={model} variable={variable} />
-            <YearRanking rawData={rawData} variable={variable} />
+            <YearOverlay rawData={rawData} model={model} smoothing={smoothing} variable={variable} tab={tab} leadTime={leadTime} season={season} />
+            <StatsCards rawData={rawData} model={model} variable={variable} season={season} />
+            <YearRanking rawData={rawData} variable={variable} season={season} />
             <MonthlyTemp rawData={rawData} variable={variable} />
-            <TempAccuracy rawData={rawData} variable={variable} />
+            <TempAccuracy rawData={rawData} variable={variable} season={season} />
           </>
         )}
 
         {tab === "precip" && (
           <>
-            <YearOverlay rawData={rawData} model={model} smoothing={smoothing} variable={variable} tab={tab} leadTime={leadTime} />
-            <StatsCards rawData={rawData} model={model} variable={variable} />
+            <YearOverlay rawData={rawData} model={model} smoothing={smoothing} variable={variable} tab={tab} leadTime={leadTime} season={season} />
+            <StatsCards rawData={rawData} model={model} variable={variable} season={season} />
             <MonthlyPrecip rawData={rawData} />
-            <RainSkill rawData={rawData} />
+            <RainSkill rawData={rawData} season={season} />
+            <PrecipAccuracy rawData={rawData} season={season} />
           </>
         )}
 
-        <ForecastSkill rawData={rawData} />
+        <ForecastSkill rawData={rawData} variable={variable} leadTime={leadTime} tab={tab} />
 
         <p style={{ fontSize: 10, color: "#333", lineHeight: 1.6, margin: 0 }}>
           Data: <a href="https://open-meteo.com/" target="_blank" rel="noopener" style={{ color: "#666" }}>Open-Meteo</a> (free, non-commercial). ERA5 reanalysis for ground truth. Cached for 12h in localStorage.
