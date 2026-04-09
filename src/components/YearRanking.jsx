@@ -1,14 +1,16 @@
 import { YEAR_COLORS } from "../config";
+import { useYearlyData } from "../hooks";
 import { getObsTempKey } from "../utils";
+import Panel from "./Panel";
+import DataTable from "./DataTable";
 
 export default function YearRanking({ rawData, variable }) {
   if (!rawData) return null;
-  const rows = rawData.rows;
+  const { yrs, yearRows } = useYearlyData(rawData);
   const obsKey = getObsTempKey(variable);
 
-  const yrs = [...new Set(rows.map(r => r.y))].sort();
   const ranking = yrs.map(yr => {
-    const yrRows = rows.filter(r => r.y === yr);
+    const yrRows = yearRows[yr];
     const temps = yrRows.map(r => r[obsKey]).filter(v => v != null);
     const precips = yrRows.map(r => r.op).filter(v => v != null);
     return {
@@ -21,35 +23,34 @@ export default function YearRanking({ rawData, variable }) {
     };
   }).sort((a, b) => (b.avgTemp ?? 0) - (a.avgTemp ?? 0));
 
-  const th = { padding: "8px 8px", textAlign: "left", color: "#888", fontWeight: 600 };
-  const td = { padding: "6px 8px" };
+  const headers = [
+    { label: "#" },
+    { label: "Year" },
+    { label: "Avg Temp" },
+    { label: "Min" },
+    { label: "Max" },
+    { label: "Total Precip" },
+    { label: "Days" },
+  ];
+
+  const rows = ranking.map((yr, i) => {
+    const c = YEAR_COLORS[yr.year] || "#999";
+    return {
+      cells: [
+        { value: i + 1 },
+        { value: yr.year, style: { color: c, fontWeight: 700 } },
+        { value: yr.avgTemp != null ? yr.avgTemp.toFixed(1) + "°C" : null },
+        { value: yr.minTemp != null ? yr.minTemp.toFixed(1) + "°" : null, style: { color: "#7fb8d8" } },
+        { value: yr.maxTemp != null ? yr.maxTemp.toFixed(1) + "°" : null, style: { color: "#e07a5f" } },
+        { value: yr.totalPrecip != null ? yr.totalPrecip.toFixed(0) + " mm" : null },
+        { value: yr.days, style: { color: "#666" } },
+      ],
+    };
+  });
 
   return (
-    <div style={{ marginBottom: 20 }}>
-      <h2 style={{ fontSize: 13, fontWeight: 700, color: "#81b29a", margin: "0 0 10px", letterSpacing: "0.05em" }}>YEAR RANKING (ERA5 observed)</h2>
-      <div style={{ background: "#16213e", border: "1px solid #222", borderRadius: 6, overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
-          <thead><tr style={{ borderBottom: "1px solid #333" }}>
-            {["#", "Year", "Avg Temp", "Min", "Max", "Total Precip", "Days"].map(h => <th key={h} style={th}>{h}</th>)}
-          </tr></thead>
-          <tbody>
-            {ranking.map((yr, i) => {
-              const c = YEAR_COLORS[yr.year] || "#999";
-              return (
-                <tr key={yr.year} style={{ borderBottom: "1px solid #1f2f4f" }}>
-                  <td style={td}>{i + 1}</td>
-                  <td style={{ ...td, color: c, fontWeight: 700 }}>{yr.year}</td>
-                  <td style={td}>{yr.avgTemp?.toFixed(1)}°C</td>
-                  <td style={{ ...td, color: "#7fb8d8" }}>{yr.minTemp?.toFixed(1)}°</td>
-                  <td style={{ ...td, color: "#e07a5f" }}>{yr.maxTemp?.toFixed(1)}°</td>
-                  <td style={td}>{yr.totalPrecip?.toFixed(0)} mm</td>
-                  <td style={{ ...td, color: "#666" }}>{yr.days}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <Panel title="YEAR RANKING (ERA5 observed)" titleColor="#81b29a">
+      <DataTable headers={headers} rows={rows} />
+    </Panel>
   );
 }

@@ -25,6 +25,12 @@ export default function LocationSelector({ location, onLocationChange }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
   const searchGeocoding = useCallback(async (q) => {
     if (q.length < 2) { setResults([]); return; }
     try {

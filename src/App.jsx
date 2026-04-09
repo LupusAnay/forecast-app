@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { fetchAllData, clearCache, MODEL_LABELS } from "./data";
 import GlobalControls from "./components/GlobalControls";
 import LocationSelector, { loadSavedLocation, saveLocation } from "./components/LocationSelector";
@@ -23,25 +23,26 @@ export default function App() {
   const [tab, setTab] = useState("temp");
   const [leadTime, setLeadTime] = useState(0);
 
-  const loadData = useCallback((loc = location, force = false) => {
+  const locationRef = useRef(location);
+  locationRef.current = location;
+
+  const loadData = useCallback((loc, force = false) => {
     if (force) clearCache(loc.lat, loc.lon);
     setLoading(true);
     setProgress("Initializing...");
+    setRawData(null);
     fetchAllData(setProgress, loc).then(data => { setRawData(data); setLoading(false); }).catch(e => { setProgress(`Error: ${e.message}`); });
-  }, [location]);
+  }, []);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(location); }, []);
 
-  const handleRefresh = useCallback(() => { loadData(location, true); }, [loadData, location]);
+  const handleRefresh = useCallback(() => { loadData(locationRef.current, true); }, [loadData]);
 
   const handleLocationChange = useCallback((newLoc) => {
     setLocation(newLoc);
     saveLocation(newLoc);
-    setLoading(true);
-    setProgress("Initializing...");
-    setRawData(null);
-    fetchAllData(setProgress, newLoc).then(data => { setRawData(data); setLoading(false); }).catch(e => { setProgress(`Error: ${e.message}`); });
-  }, []);
+    loadData(newLoc);
+  }, [loadData]);
 
   if (loading) {
     return (

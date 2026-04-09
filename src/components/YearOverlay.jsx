@@ -1,7 +1,8 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useMemo } from "react";
 import Plotly from "plotly.js-dist-min";
 import { YEAR_COLORS, MONTH_TICKS, MONTHS } from "../config";
 import { rollingAvg, doyToLabel, getObsTempKey, getFcTempKey, getFwdTempKey } from "../utils";
+import Panel from "./Panel";
 
 function cumulativeSum(arr) {
   let cum = 0;
@@ -17,7 +18,7 @@ export default function YearOverlay({ rawData, model, smoothing, variable, tab, 
   const modelKey = rawData?.models?.[model];
   const isTemp = tab === "temp";
 
-  const traces = (() => {
+  const traces = useMemo(() => {
     if (!rawData || !modelKey) return [];
     const rows = rawData.rows;
     const yrs = [...new Set(rows.map(r => r.y))].sort();
@@ -38,9 +39,7 @@ export default function YearOverlay({ rawData, model, smoothing, variable, tab, 
       const obsRaw = yrRows.map(r => isTemp ? r[obsKey] : r.op);
       const fwdRaw = yrRows.map(r => isTemp ? r[fwdKey] : r[`fwp_${modelKey}`]);
 
-      // Build forecast trace (may be split into two segments for current year + lead time)
       if (useLeadTime && yr === currentYear) {
-        // Split current year forecast into: analysis (old dates) + prediction (recent dates from previous runs)
         const ltTempKey = `temp_day${leadTime}`;
         const ltPrecipKey = `precip_day${leadTime}`;
         const analysisFcVal = [];
@@ -61,16 +60,13 @@ export default function YearOverlay({ rawData, model, smoothing, variable, tab, 
         }
 
         if (isTemp) {
-          // Analysis segment (dashed, where no lead-time data)
           allTraces.push({ x: doys, y: rollingAvg(analysisFcVal, smoothing), name: yr + " analysis", color: c, dash: "dash", legendgroup: yr + "fc" });
-          // Prediction segment (dotted, actual N-day-ahead forecast)
           allTraces.push({ x: doys, y: rollingAvg(predictionFcVal, smoothing), name: yr + ` day${leadTime} prediction`, color: c, dash: "dot", legendgroup: yr + "fcpred" });
         } else {
           allTraces.push({ x: doys, y: cumulativeSum(analysisFcVal), name: yr + " analysis", color: c, dash: "dash", legendgroup: yr + "fc" });
           allTraces.push({ x: doys, y: cumulativeSum(predictionFcVal), name: yr + ` day${leadTime} prediction`, color: c, dash: "dot", legendgroup: yr + "fcpred" });
         }
       } else {
-        // Past years or analysis mode: regular forecast trace
         if (isTemp) {
           allTraces.push({ x: doys, y: rollingAvg(fcRaw, smoothing), name: yr + " forecast", color: c, dash: "dash", legendgroup: yr + "fc" });
         } else {
@@ -78,14 +74,12 @@ export default function YearOverlay({ rawData, model, smoothing, variable, tab, 
         }
       }
 
-      // Observed (always solid)
       if (isTemp) {
         allTraces.push({ x: doys, y: rollingAvg(obsRaw, smoothing), name: yr + " observed", color: c, dash: "solid", legendgroup: yr + "obs" });
       } else {
         allTraces.push({ x: doys, y: cumulativeSum(obsRaw), name: yr + " observed", color: c, dash: "solid", legendgroup: yr + "obs" });
       }
 
-      // Forward (live 7-day) forecast — semi-transparent for current year only
       if (fwdRaw.some(v => v != null)) {
         const lastHistFc = useLeadTime && yr === currentYear
           ? yrRows.map(r => {
@@ -116,9 +110,9 @@ export default function YearOverlay({ rawData, model, smoothing, variable, tab, 
       }
     }
     return allTraces;
-  })();
+  }, [rawData, modelKey, variable, smoothing, isTemp, leadTime]);
 
-  const legendNote = (() => {
+  const legendNote = useMemo(() => {
     if (leadTime > 0) {
       return isTemp
         ? "Solid = ERA5 observed. Dashed = analysis (where no prediction data). Dotted = predicted " + leadTime + "d ahead (Previous Runs API). Semi-transparent = live forecast (not yet observed)."
@@ -127,7 +121,7 @@ export default function YearOverlay({ rawData, model, smoothing, variable, tab, 
     return isTemp
       ? "Solid = ERA5 reanalysis (ground truth). Dashed = historical forecast. Semi-transparent = live 7-day forecast."
       : "Solid = ERA5 observed (cumulative). Dashed = forecast (cumulative). Semi-transparent = live 7-day forecast.";
-  })();
+  }, [leadTime, isTemp]);
 
   useEffect(() => {
     if (!ref.current || !traces.length) return;
@@ -183,18 +177,18 @@ export default function YearOverlay({ rawData, model, smoothing, variable, tab, 
       if (savedYRange) relayoutUpdate["yaxis.range"] = savedYRange;
       Plotly.relayout(ref.current, relayoutUpdate);
     }
-  }, [traces, tab]);
+  }, [traces, isTemp]);
 
   useEffect(() => {
     return () => { if (ref.current) { try { Plotly.purge(ref.current); } catch(e) {} } };
   }, []);
 
   return (
-    <div style={{ background: "#16213e", borderRadius: 8, padding: 8, border: "1px solid #222", marginBottom: 14 }}>
+    <Panel style={{ borderRadius: 8, padding: 8, marginBottom: 14 }}>
       <div ref={ref} style={{ width: "100%" }} />
       <p style={{ fontSize: 10, color: "#444", lineHeight: 1.6, margin: "8px 0 0" }}>
         {legendNote}
       </p>
-    </div>
+    </Panel>
   );
 }
